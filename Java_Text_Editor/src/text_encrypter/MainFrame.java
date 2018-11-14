@@ -17,6 +17,7 @@ import javax.imageio.ImageIO;
 import javax.swing.JFileChooser;
 import javax.swing.JOptionPane;
 import javax.swing.filechooser.FileNameExtensionFilter;
+import java.util.Stack;
 
 public class MainFrame extends javax.swing.JFrame {
 
@@ -24,10 +25,16 @@ public class MainFrame extends javax.swing.JFrame {
     int fontSize = 14;
     
     Encriptador encriptador;
-    String key;
+    String key, keyOriginal;
     int longitudBloque;
+    int longitudLlave;
     
     String metodo;
+    
+    Stack byteEnc1;
+    Stack byteEnc2;
+    Stack txtEnc1;
+    Stack txtEnc2;
 
     public MainFrame() {
         initComponents();
@@ -64,6 +71,7 @@ public class MainFrame extends javax.swing.JFrame {
     
     private void inicializaVariables(){
         longitudBloque = 16;
+        longitudLlave = 16;
         
         //Filter Files to display
         //Set JFileChooser to accept only text files
@@ -71,9 +79,9 @@ public class MainFrame extends javax.swing.JFrame {
         fileOpener.setFileFilter(filter);
         
         metodo = "twofish";
-        key = leerLlave(longitudBloque);
+        leerLlave();
         
-        lblEstado.setText("Método: " + metodo + "    Longitud del bloque: " + longitudBloque);
+        imprimirMetodoLongitudBloque();
         
         try {
             encriptador = new Encriptador(metodo,longitudBloque,key);
@@ -86,23 +94,34 @@ public class MainFrame extends javax.swing.JFrame {
         } catch (IOException ex) {
             Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
         }
+        
+        byteEnc1 = new Stack();
+        byteEnc2 = new Stack();
+        txtEnc1  = new Stack();
+        txtEnc2  = new Stack();
     }
     
-    private String leerLlave(int tamanno){
+    private void leerLlave(){
         
-        String llave = JOptionPane.showInputDialog("Ingrese la llave:", "");
-        if (llave == null)
-            llave = "";
+        keyOriginal = JOptionPane.showInputDialog("Ingrese la llave:", "");
+        if (keyOriginal == null)
+            keyOriginal = "";
         
-        while(llave.length() < tamanno)
-                llave = llave.concat(" ");
+        key = arreglaLlave(keyOriginal, longitudLlave);
+    }
+    
+    private String arreglaLlave(String llave, int tamanno){
+        String llaveArreglada = llave;
         
-        if (llave.length() > tamanno){
-            llave = JOptionPane.showInputDialog("La llave es demasiado larga, se usarán los primeros " + tamanno + "caracteres.", "");
-            llave = llave.substring(0, tamanno);
+        while(llaveArreglada.length() < tamanno)
+                llaveArreglada = llaveArreglada.concat(" ");
+        
+        if (llaveArreglada.length() > tamanno){
+            JOptionPane.showMessageDialog(this, "La llave es demasiado larga, se usarán los primeros " + tamanno + " caracteres.");
+            llaveArreglada = llaveArreglada.substring(0, tamanno);
         }
-                
-        return llave;
+        
+        return llaveArreglada;
     }
 
     public void readTheParamFile(File file) {
@@ -121,12 +140,74 @@ public class MainFrame extends javax.swing.JFrame {
     public void saveChanges() {
         try {
             PrintWriter printWriter = new PrintWriter(currentEditingFile);
-            encriptar();
+            encriptar1();
             printWriter.write(textoEncriptado1.getText()+textoEncriptado2.getText());
             printWriter.close();
 //            JOptionPane.showMessageDialog(rootPane, "Saved", "Done", JOptionPane.INFORMATION_MESSAGE);
         } catch (FileNotFoundException ex) {
             Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+    
+    public void imprimirMetodoLongitudBloque(){
+        lblEstado.setText("Método: " + metodo + "    Longitud del bloque: " + longitudBloque);
+    }
+    
+    private void encriptar1(){
+        String text = textoClaro.getText();
+        if (!"".equals(text)){
+            byte[] encText = encriptador.Encriptar(text);
+            byteEnc1.add(encText);
+            txtEnc1.add(new String(encText));
+            textoEncriptado1.setText(textoEncriptado1.getText().concat((String)txtEnc1.peek()) + "\n");
+        }
+        textoClaro.setText("");
+    }
+    
+    private void encriptar2(){
+        String text = textoClaro.getText();
+        if (!"".equals(text)){
+            byte[] encText = encriptador.Encriptar(text);
+            byteEnc2.add(encText);
+            txtEnc2.add(new String(encText));
+            textoEncriptado2.setText(((String)txtEnc2.peek()).concat("\n").concat(textoEncriptado2.getText()));
+        }
+        textoClaro.setText("");
+    }
+    
+    private void desencriptar1(){
+        String text = textoClaro.getText();
+        
+        if (!"".equals(text)){
+            encriptar2();
+        }
+        
+        if (!byteEnc1.isEmpty()){
+            text = encriptador.Desencriptar((byte[])byteEnc1.pop());
+
+            textoClaro.setText(text);
+
+            //Se quita el texto de textoEncriptado1
+            text = textoEncriptado1.getText();
+            textoEncriptado1.setText(text.substring(0, text.length() - ((String)txtEnc1.pop()).length() - 1));
+        }
+    }
+    
+    private void desencriptar2(){
+        String text = textoClaro.getText();
+        
+        if (!"".equals(text)){
+            encriptar1();
+        }
+        
+        if (!byteEnc2.isEmpty()){
+            text = encriptador.Desencriptar((byte[])byteEnc2.pop());
+
+            textoClaro.setText(text);
+
+            //Se quita el texto de textoEncriptado2
+            text = textoEncriptado2.getText();
+            textoEncriptado2.setText(text.substring(((String)txtEnc2.pop()).length() + 1));
         }
     }
 
@@ -309,20 +390,40 @@ public class MainFrame extends javax.swing.JFrame {
 
         mnuMetTwofish.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_T, java.awt.event.InputEvent.SHIFT_MASK | java.awt.event.InputEvent.CTRL_MASK));
         mnuMetTwofish.setText("Twofish");
+        mnuMetTwofish.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                mnuMetTwofishActionPerformed(evt);
+            }
+        });
         mnuMetodo.add(mnuMetTwofish);
 
         mnuMetDES.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_D, java.awt.event.InputEvent.SHIFT_MASK | java.awt.event.InputEvent.CTRL_MASK));
         mnuMetDES.setText("DES");
+        mnuMetDES.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                mnuMetDESActionPerformed(evt);
+            }
+        });
         mnuMetodo.add(mnuMetDES);
 
         mnuMetTDES.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_3, java.awt.event.InputEvent.SHIFT_MASK | java.awt.event.InputEvent.CTRL_MASK));
         mnuMetTDES.setText("TDES");
+        mnuMetTDES.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                mnuMetTDESActionPerformed(evt);
+            }
+        });
         mnuMetodo.add(mnuMetTDES);
 
         mnuOpciones.add(mnuMetodo);
 
         mnuPassword.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_P, java.awt.event.InputEvent.CTRL_MASK));
         mnuPassword.setText("Password");
+        mnuPassword.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                mnuPasswordActionPerformed(evt);
+            }
+        });
         mnuOpciones.add(mnuPassword);
 
         jMenuBar1.add(mnuOpciones);
@@ -370,7 +471,7 @@ public class MainFrame extends javax.swing.JFrame {
                 System.out.println(buffer);
                 textoEncriptado1.setText(buffer);
                 //Key for the selected file is entered
-                String key = leerLlave(longitudBloque);
+                leerLlave();
             } catch (FileNotFoundException ex) {
                 Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
             }
@@ -427,17 +528,8 @@ public class MainFrame extends javax.swing.JFrame {
 
     private void encButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_encButtonActionPerformed
         // TODO add your handling code here:
-        encriptar();
+        encriptar1();
     }//GEN-LAST:event_encButtonActionPerformed
-
-    private void encriptar(){
-        String text = textoClaro.getText();
-        if (!"".equals(text)){
-            byte[] encText = encriptador.Encriptar(text);
-            textoEncriptado1.setText(textoEncriptado1.getText().concat(new String(encText)) + "\n");
-        }
-        textoClaro.setText("");
-    }
     
     private void decButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_decButtonActionPerformed
         // TODO add your handling code here:
@@ -448,6 +540,20 @@ public class MainFrame extends javax.swing.JFrame {
 
     private void mnuMetBlowfishActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_mnuMetBlowfishActionPerformed
         // TODO add your handling code here:
+        
+        metodo = "blowfish";
+        longitudBloque = 8;
+        longitudLlave = 8;
+        
+        key = arreglaLlave(keyOriginal, longitudLlave);
+        
+        imprimirMetodoLongitudBloque();
+        
+        try {
+            encriptador = new Encriptador(metodo, longitudBloque, key);
+        } catch (InvalidKeyException ex) {
+            Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
+        }
     }//GEN-LAST:event_mnuMetBlowfishActionPerformed
 
     private void mnuSalirActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_mnuSalirActionPerformed
@@ -460,7 +566,11 @@ public class MainFrame extends javax.swing.JFrame {
         // TODO add your handling code here:
         
         if (evt.getKeyCode() == KeyEvent.VK_ENTER){
-            encriptar();
+            encriptar1();
+        }else if(evt.isControlDown() && evt.getKeyCode() == KeyEvent.VK_DOWN){
+            desencriptar1();
+        }else if(evt.isControlDown() && evt.getKeyCode() == KeyEvent.VK_UP){
+            desencriptar2();
         }
     }//GEN-LAST:event_textoClaroKeyPressed
 
@@ -471,6 +581,66 @@ public class MainFrame extends javax.swing.JFrame {
             textoClaro.setText("");
         }
     }//GEN-LAST:event_textoClaroKeyReleased
+
+    private void mnuPasswordActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_mnuPasswordActionPerformed
+        // TODO add your handling code here:
+        
+        leerLlave();
+    }//GEN-LAST:event_mnuPasswordActionPerformed
+
+    private void mnuMetTwofishActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_mnuMetTwofishActionPerformed
+        // TODO add your handling code here:
+        
+        metodo = "twofish";
+        longitudBloque = 16;
+        longitudLlave = 16;
+        
+        key = arreglaLlave(keyOriginal, longitudLlave);
+        
+        imprimirMetodoLongitudBloque();
+        
+        try {
+            encriptador = new Encriptador(metodo, longitudBloque, key);
+        } catch (InvalidKeyException ex) {
+            Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }//GEN-LAST:event_mnuMetTwofishActionPerformed
+
+    private void mnuMetDESActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_mnuMetDESActionPerformed
+        // TODO add your handling code here:
+        
+        metodo = "des";
+        longitudBloque = 8;
+        longitudLlave = 8;
+        
+        key = arreglaLlave(keyOriginal, longitudLlave);
+        
+        imprimirMetodoLongitudBloque();
+        
+        try {
+            encriptador = new Encriptador(metodo, longitudBloque, key);
+        } catch (InvalidKeyException ex) {
+            Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }//GEN-LAST:event_mnuMetDESActionPerformed
+
+    private void mnuMetTDESActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_mnuMetTDESActionPerformed
+        // TODO add your handling code here:
+        
+        metodo = "tripledes";
+        longitudBloque = 8;
+        longitudLlave = 24;
+        
+        key = arreglaLlave(keyOriginal, longitudLlave);
+        
+        imprimirMetodoLongitudBloque();
+        
+        try {
+            encriptador = new Encriptador(metodo, longitudBloque, key);
+        } catch (InvalidKeyException ex) {
+            Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }//GEN-LAST:event_mnuMetTDESActionPerformed
 /**/
     
 /**/

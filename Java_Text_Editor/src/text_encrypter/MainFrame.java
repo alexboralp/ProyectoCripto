@@ -219,8 +219,8 @@ public class MainFrame extends javax.swing.JFrame {
         if (status == JFileChooser.APPROVE_OPTION) {
             //We got directory. Now needs file name
             String fileName = JOptionPane.showInputDialog("Nombre del archivo", "Untitled.txt");
-            if (!fileName.contains(".txt")) {
-                fileName += ".txt";
+            if (!fileName.contains(".enc")) {
+                fileName += ".enc";
             }
             File f = new File(saveDialog.getSelectedFile() + "\\" + fileName);
             if (f.exists()) {
@@ -324,10 +324,14 @@ public class MainFrame extends javax.swing.JFrame {
         saveDialog = new javax.swing.JFileChooser();
         jPanel1 = new javax.swing.JPanel();
         jToolBar1 = new javax.swing.JToolBar();
-        openButton = new javax.swing.JButton();
-        encButton = new javax.swing.JButton();
-        decButton = new javax.swing.JButton();
-        saveButton = new javax.swing.JButton();
+        btnGuardar = new javax.swing.JButton();
+        btnNuevo = new javax.swing.JButton();
+        btnAbrir = new javax.swing.JButton();
+        btnEncriptar = new javax.swing.JButton();
+        btnDesencriptar1 = new javax.swing.JButton();
+        btnDesencriptar2 = new javax.swing.JButton();
+        btnGuardarSalir = new javax.swing.JButton();
+        btnSalir = new javax.swing.JButton();
         lblEstado = new javax.swing.JLabel();
         jPanel2 = new javax.swing.JPanel();
         jScrollPane1 = new javax.swing.JScrollPane();
@@ -341,7 +345,8 @@ public class MainFrame extends javax.swing.JFrame {
         mnuNuevo = new javax.swing.JMenuItem();
         mnuAbrir = new javax.swing.JMenuItem();
         jSeparator1 = new javax.swing.JPopupMenu.Separator();
-        jMenuItem1 = new javax.swing.JMenuItem();
+        mnuGuardar = new javax.swing.JMenuItem();
+        mnuGuardarSalir = new javax.swing.JMenuItem();
         mnuSalir = new javax.swing.JMenuItem();
         mnuOpciones = new javax.swing.JMenu();
         mnuMetodo = new javax.swing.JMenu();
@@ -362,53 +367,91 @@ public class MainFrame extends javax.swing.JFrame {
         jToolBar1.setBackground(new java.awt.Color(255, 255, 255));
         jToolBar1.setRollover(true);
 
-        openButton.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/open_new_file.png"))); // NOI18N
-        openButton.setText("Abrir");
-        openButton.setFocusable(false);
-        openButton.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
-        openButton.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
-        openButton.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                openButtonActionPerformed(evt);
-            }
-        });
-        jToolBar1.add(openButton);
+        btnGuardar.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/guardar.png"))); // NOI18N
+        btnGuardar.setText("Guardar");
+        btnGuardar.setFocusable(false);
+        btnGuardar.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
+        btnGuardar.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
+        jToolBar1.add(btnGuardar);
 
-        encButton.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/encriptar.png"))); // NOI18N
-        encButton.setText("Encriptar");
-        encButton.setFocusable(false);
-        encButton.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
-        encButton.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
-        encButton.addActionListener(new java.awt.event.ActionListener() {
+        btnNuevo.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/nuevo.png"))); // NOI18N
+        btnNuevo.setText("Nuevo");
+        btnNuevo.setFocusable(false);
+        btnNuevo.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
+        btnNuevo.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
+        btnNuevo.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                encButtonActionPerformed(evt);
+                btnNuevoActionPerformed(evt);
             }
         });
-        jToolBar1.add(encButton);
+        jToolBar1.add(btnNuevo);
 
-        decButton.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/desencriptar.png"))); // NOI18N
-        decButton.setText("Desencriptar");
-        decButton.setFocusable(false);
-        decButton.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
-        decButton.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
-        decButton.addActionListener(new java.awt.event.ActionListener() {
+        btnAbrir.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/abrir.png"))); // NOI18N
+        btnAbrir.setText("Abrir");
+        btnAbrir.setFocusable(false);
+        btnAbrir.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
+        btnAbrir.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
+        btnAbrir.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                decButtonActionPerformed(evt);
+                btnAbrirActionPerformed(evt);
             }
         });
-        jToolBar1.add(decButton);
+        jToolBar1.add(btnAbrir);
 
-        saveButton.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/Save_icon.png"))); // NOI18N
-        saveButton.setText("Guardar y Salir");
-        saveButton.setFocusable(false);
-        saveButton.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
-        saveButton.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
-        saveButton.addActionListener(new java.awt.event.ActionListener() {
+        btnEncriptar.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/encriptar.png"))); // NOI18N
+        btnEncriptar.setText("Encriptar");
+        btnEncriptar.setFocusable(false);
+        btnEncriptar.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
+        btnEncriptar.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
+        btnEncriptar.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                saveButtonActionPerformed(evt);
+                btnEncriptarActionPerformed(evt);
             }
         });
-        jToolBar1.add(saveButton);
+        jToolBar1.add(btnEncriptar);
+
+        btnDesencriptar1.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/desencriptar1.png"))); // NOI18N
+        btnDesencriptar1.setText("Desencriptar");
+        btnDesencriptar1.setFocusable(false);
+        btnDesencriptar1.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
+        btnDesencriptar1.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
+        btnDesencriptar1.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnDesencriptar1ActionPerformed(evt);
+            }
+        });
+        jToolBar1.add(btnDesencriptar1);
+
+        btnDesencriptar2.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/desencriptar2.png"))); // NOI18N
+        btnDesencriptar2.setText("Desencriptar");
+        btnDesencriptar2.setFocusable(false);
+        btnDesencriptar2.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
+        btnDesencriptar2.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
+        jToolBar1.add(btnDesencriptar2);
+
+        btnGuardarSalir.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/guardarsalir.png"))); // NOI18N
+        btnGuardarSalir.setText("Guardar y Salir");
+        btnGuardarSalir.setFocusable(false);
+        btnGuardarSalir.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
+        btnGuardarSalir.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
+        btnGuardarSalir.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnGuardarSalirActionPerformed(evt);
+            }
+        });
+        jToolBar1.add(btnGuardarSalir);
+
+        btnSalir.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/salir.png"))); // NOI18N
+        btnSalir.setText("Salir");
+        btnSalir.setFocusable(false);
+        btnSalir.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
+        btnSalir.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
+        btnSalir.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnSalirActionPerformed(evt);
+            }
+        });
+        jToolBar1.add(btnSalir);
 
         jPanel1.add(jToolBar1, java.awt.BorderLayout.NORTH);
 
@@ -461,13 +504,17 @@ public class MainFrame extends javax.swing.JFrame {
         mnuArchivo.add(mnuNuevo);
 
         mnuAbrir.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_A, java.awt.event.InputEvent.CTRL_MASK));
-        mnuAbrir.setText("Abrir");
+        mnuAbrir.setText("Abrir...");
         mnuArchivo.add(mnuAbrir);
         mnuArchivo.add(jSeparator1);
 
-        jMenuItem1.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_S, java.awt.event.InputEvent.CTRL_MASK));
-        jMenuItem1.setText("Guardar y salir");
-        mnuArchivo.add(jMenuItem1);
+        mnuGuardar.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_G, java.awt.event.InputEvent.CTRL_MASK));
+        mnuGuardar.setText("Guardar");
+        mnuArchivo.add(mnuGuardar);
+
+        mnuGuardarSalir.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_S, java.awt.event.InputEvent.CTRL_MASK));
+        mnuGuardarSalir.setText("Guardar y salir");
+        mnuArchivo.add(mnuGuardarSalir);
 
         mnuSalir.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_S, java.awt.event.InputEvent.SHIFT_MASK | java.awt.event.InputEvent.CTRL_MASK));
         mnuSalir.setText("Salir");
@@ -539,7 +586,7 @@ public class MainFrame extends javax.swing.JFrame {
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jPanel1, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 672, Short.MAX_VALUE)
+            .addComponent(jPanel1, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -549,7 +596,7 @@ public class MainFrame extends javax.swing.JFrame {
         pack();
     }// </editor-fold>//GEN-END:initComponents
 
-    private void openButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_openButtonActionPerformed
+    private void btnAbrirActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnAbrirActionPerformed
         //Show File Open dialouge here
         int status = fileOpener.showOpenDialog(rootPane);
         if (status == JFileChooser.APPROVE_OPTION) {
@@ -577,26 +624,26 @@ public class MainFrame extends javax.swing.JFrame {
         } else {
             System.out.println("No se seleccionó archivo");
         }
-    }//GEN-LAST:event_openButtonActionPerformed
+    }//GEN-LAST:event_btnAbrirActionPerformed
 
-    private void saveButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_saveButtonActionPerformed
+    private void btnGuardarSalirActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnGuardarSalirActionPerformed
         guardarArchivo();
         
         this.setVisible(false);
         this.dispose();
-    }//GEN-LAST:event_saveButtonActionPerformed
+    }//GEN-LAST:event_btnGuardarSalirActionPerformed
 
-    private void encButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_encButtonActionPerformed
+    private void btnEncriptarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnEncriptarActionPerformed
         // TODO add your handling code here:
         encriptar1();
-    }//GEN-LAST:event_encButtonActionPerformed
+    }//GEN-LAST:event_btnEncriptarActionPerformed
     
-    private void decButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_decButtonActionPerformed
+    private void btnDesencriptar1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnDesencriptar1ActionPerformed
         // TODO add your handling code here:
         String text = textoEncriptado1.getText();
         String decText = encriptador.Desencriptar(text.getBytes());
         textoClaro.setText(decText);
-    }//GEN-LAST:event_decButtonActionPerformed
+    }//GEN-LAST:event_btnDesencriptar1ActionPerformed
 
     private void mnuMetBlowfishActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_mnuMetBlowfishActionPerformed
         // TODO add your handling code here:
@@ -717,6 +764,21 @@ public class MainFrame extends javax.swing.JFrame {
             Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
         }
     }//GEN-LAST:event_mnuMetTDESActionPerformed
+
+    private void btnSalirActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnSalirActionPerformed
+        // TODO add your handling code here:
+        
+        this.setVisible(false);
+        this.dispose();
+    }//GEN-LAST:event_btnSalirActionPerformed
+
+    private void btnNuevoActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnNuevoActionPerformed
+        // TODO add your handling code here:
+        
+        limpiarVariables();
+        keyOriginal = "";
+        key = "";
+    }//GEN-LAST:event_btnNuevoActionPerformed
 /**/
     
 /**/
@@ -753,11 +815,16 @@ public class MainFrame extends javax.swing.JFrame {
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
-    private javax.swing.JButton decButton;
-    private javax.swing.JButton encButton;
+    private javax.swing.JButton btnAbrir;
+    private javax.swing.JButton btnDesencriptar1;
+    private javax.swing.JButton btnDesencriptar2;
+    private javax.swing.JButton btnEncriptar;
+    private javax.swing.JButton btnGuardar;
+    private javax.swing.JButton btnGuardarSalir;
+    private javax.swing.JButton btnNuevo;
+    private javax.swing.JButton btnSalir;
     private javax.swing.JFileChooser fileOpener;
     private javax.swing.JMenuBar jMenuBar1;
-    private javax.swing.JMenuItem jMenuItem1;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JPanel jPanel2;
     private javax.swing.JScrollPane jScrollPane1;
@@ -768,6 +835,8 @@ public class MainFrame extends javax.swing.JFrame {
     private javax.swing.JLabel lblEstado;
     private javax.swing.JMenuItem mnuAbrir;
     private javax.swing.JMenu mnuArchivo;
+    private javax.swing.JMenuItem mnuGuardar;
+    private javax.swing.JMenuItem mnuGuardarSalir;
     private javax.swing.JMenuItem mnuMetBlowfish;
     private javax.swing.JMenuItem mnuMetDES;
     private javax.swing.JMenuItem mnuMetTDES;
@@ -777,8 +846,6 @@ public class MainFrame extends javax.swing.JFrame {
     private javax.swing.JMenu mnuOpciones;
     private javax.swing.JMenuItem mnuPassword;
     private javax.swing.JMenuItem mnuSalir;
-    private javax.swing.JButton openButton;
-    private javax.swing.JButton saveButton;
     private javax.swing.JFileChooser saveDialog;
     private javax.swing.JTextArea textoClaro;
     private javax.swing.JTextArea textoEncriptado1;

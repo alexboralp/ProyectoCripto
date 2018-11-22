@@ -18,6 +18,11 @@ import javax.swing.JOptionPane;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import java.util.Stack;
 
+//Open source code used (but modified) for the text editor:
+//Project: Java Text Editor from https://drive.google.com/file/d/0B1WF0QtbznAhT3hnVjBXbk1JazA/view
+//Code Author: http://www.genuinecoder.com
+//Copyright (c) 2016 Genuine Coder
+
 public class MainFrame extends javax.swing.JFrame {
 
     //Aarchivo en el que se está trabajando
@@ -27,7 +32,7 @@ public class MainFrame extends javax.swing.JFrame {
     //int fontSize = 14;
     
     //Variable que contiene el encriptador
-    Encriptador encriptador;
+    Encriptador encriptador = null;
     
     //La llave arreglada y la llave original que escribió el usuario
     String key, keyOriginal;
@@ -44,7 +49,11 @@ public class MainFrame extends javax.swing.JFrame {
     Stack byteEnc2;
     Stack txtEnc1;
     Stack txtEnc2;
-
+    
+    //Variable para identificar si se han dado cambios en el documento.
+    boolean cambios;
+    //Bandera para cancelar el abrir de una pantalla cuando se abre un archivo y cancela en escoger un metodo
+    boolean banderaMetodo;
     /**
      * Constructor vació de la ventana
      */
@@ -60,9 +69,12 @@ public class MainFrame extends javax.swing.JFrame {
             @Override
             public void windowClosing(WindowEvent e) {
                 super.windowClosing(e); //To change body of generated methods, choose Tools | Templates.
-                int ans = JOptionPane.showConfirmDialog(rootPane, "¿Guardar cambios?", "Confirmar", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
-                if (ans == JOptionPane.YES_OPTION) {
-                    guardarArchivo();
+                
+                if (cambios){
+                    int ans = JOptionPane.showConfirmDialog(rootPane, "¿Guardar cambios?", "Confirmar", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE);
+                    if (ans == JOptionPane.YES_OPTION) {
+                        guardarArchivo();
+                    }
                 }
             }
 
@@ -81,7 +93,33 @@ public class MainFrame extends javax.swing.JFrame {
         this.setLocationRelativeTo(null);
 
         currentEditingFile = file;
-        leerArchivo(file);
+        leerArchivo();
+    }
+    
+    /**
+     * Constructor que recibe los parámetros para abrir un archivo inicial
+     * @param file El archivo que se debe abrir
+     * @param key La llave con que se va a abrir el archivo
+     * @param metodo El método de encriptación utilizado
+     * @param longitudBloque La longitud del bloque encriptado
+     * @param longitudLlave La longitud de la llave utilizada
+     */
+    public MainFrame(File file, String key, String metodo, int longitudBloque, int longitudLlave) {
+        initComponents();
+        
+        inicializaVariables();
+        
+        this.setLocationRelativeTo(null);
+        
+        this.keyOriginal = key;
+        this.key = key;
+        this.metodo = metodo;
+        this.longitudBloque = longitudBloque;
+        this.longitudLlave = longitudLlave;
+        crearEncriptador();
+
+        currentEditingFile = file;
+        leerArchivo();
     }
     
     /*
@@ -90,6 +128,8 @@ public class MainFrame extends javax.swing.JFrame {
      *se define la llave inicial
      */
     private void inicializaVariables(){
+        cambios = false;
+        
         longitudBloque = 16;
         longitudLlave = 16;
         
@@ -115,6 +155,9 @@ public class MainFrame extends javax.swing.JFrame {
         txtEnc2  = new Stack();
     }
     
+    /*
+     * Método que lee la llave por parte del usuario.
+     */
     private void leerLlave(){
         
         keyOriginal = JOptionPane.showInputDialog("Ingrese la llave:", "");
@@ -124,6 +167,36 @@ public class MainFrame extends javax.swing.JFrame {
         key = arreglaLlave(keyOriginal, longitudLlave);
     }
     
+    /*
+     * Método que lee el método de encriptación por parte del usuario,
+     * por el momento el programa sólo acepta cuatro métodos: "Blowfish", "Twofish", "DES", "TripleDES"
+     */
+    private void leerMetodo(){
+        String[] metodos = { "Blowfish", "Twofish", "DES", "TripleDES" };
+        
+        banderaMetodo = true;
+        String met = (String) JOptionPane.showInputDialog(this, 
+                "¿Elija el método de encriptación?", "Método",
+                JOptionPane.QUESTION_MESSAGE, null, 
+                metodos, metodos[1]);
+        if (met==null){
+            banderaMetodo = false;
+        }
+        if (metodos[0].equals(met))
+            definirMetodo("blowfish", 8, 8);
+        else if (metodos[1].equals(met))
+            definirMetodo("twofish", 16, 16);
+        else if (metodos[2].equals(met))
+            definirMetodo("des", 8, 8);
+        else if (metodos[3].equals(met))
+            definirMetodo("tripledes", 8, 24);
+    }
+    
+    /*
+     * Método que arregla la llave para que tenga la longitud necesaria,
+     * si la llave es de menor longitud la rellena de espacios en blanco,
+     * si es de mayor longitud entonces la corta.
+     */
     private String arreglaLlave(String llave, int tamanno){
         String llaveArreglada = llave;
         
@@ -138,7 +211,11 @@ public class MainFrame extends javax.swing.JFrame {
         return llaveArreglada;
     }
     
-    public void limpiarVariables(){
+    /*
+     * Método que limpia las variables utilizadas para encriptar y desencriptar,
+     * también limpia los textos de la vista gráfica.
+     */
+    private void limpiarVariables(){
         byteEnc1.clear();
         byteEnc2.clear();
         txtEnc1.clear();
@@ -146,26 +223,32 @@ public class MainFrame extends javax.swing.JFrame {
         textoEncriptado1.setText("");
         textoEncriptado2.setText("");
         textoClaro.setText("");
+        cambios = false;
     }
 
-    public void leerArchivo(File file) {
-        
+    /*
+     * Método para leer un archivo encriptado
+     */
+    private void leerArchivo() {
         FileInputStream fos = null;
         
         limpiarVariables();
         
         try{
             fos = new FileInputStream(currentEditingFile);
+            System.out.println(currentEditingFile.getPath());
 
-            int i = 0;
             int salir = 0;
             while(salir != -1){
-                byte[] resp = new byte[longitudBloque];
-                salir = fos.read(resp, i*longitudBloque, longitudBloque);
-                if (salir != -1){
-                    byteEnc1.add(resp);
-                    txtEnc1.add(new String(resp));
-                    textoEncriptado1.setText(textoEncriptado1.getText().concat(((String)txtEnc1.peek()).concat("\n")));
+                int bloques = salir = fos.read();
+                if (bloques != -1){
+                    byte[] resp = new byte[bloques * longitudBloque];
+                    salir = fos.read(resp);
+                    if (salir != -1){
+                        byteEnc1.add(resp);
+                        txtEnc1.add(new String(resp));
+                        textoEncriptado1.setText(textoEncriptado1.getText().concat(((String)txtEnc1.peek()).concat("\n")));
+                    }
                 }
             }
         } catch (FileNotFoundException ex) {
@@ -181,8 +264,15 @@ public class MainFrame extends javax.swing.JFrame {
         }
     }
 
-    public void guardarArchivo() {
-        
+    /*
+     * Método que guarda un archivo encriptado
+     */
+    private void guardarArchivo() {
+        if (encriptador == null){
+            leerLlave();               
+            leerMetodo();
+            crearEncriptador();
+        }
         encriptar1();
         
         if (currentEditingFile == null)
@@ -191,11 +281,14 @@ public class MainFrame extends javax.swing.JFrame {
             FileOutputStream fos = null;
             try {
                 fos = new FileOutputStream(currentEditingFile);
+
                 for(int i = 0; i < byteEnc1.size(); i++){
+                    fos.write(((byte[])byteEnc1.elementAt(i)).length/longitudBloque);
                     fos.write((byte[])byteEnc1.elementAt(i));//, i*longitudBloque, longitudBloque);
                 }
 
                 for(int i = 0; i < byteEnc2.size(); i++){
+                    fos.write(((byte[])byteEnc2.elementAt(i)).length/longitudBloque);
                     fos.write((byte[])byteEnc2.elementAt(i));//, offset + i*longitudBloque, longitudBloque);
                 }
             } catch (FileNotFoundException ex) {
@@ -206,6 +299,7 @@ public class MainFrame extends javax.swing.JFrame {
                 try {
                     fos.flush();
                     fos.close();
+                    cambios = false;
                 } catch (IOException ex) {
                     Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
                 } catch (NullPointerException ex){ }
@@ -213,33 +307,44 @@ public class MainFrame extends javax.swing.JFrame {
         }
     }
     
-    public void guardarComoArchivo() {
-        
+    /*
+     * Método que guarda un archivo encriptado con otro nombre
+     */
+    private void guardarComoArchivo() {
         int status = saveDialog.showOpenDialog(rootPane);
         if (status == JFileChooser.APPROVE_OPTION) {
             //We got directory. Now needs file name
-            String fileName = JOptionPane.showInputDialog("Nombre del archivo", "Untitled.txt");
-            if (!fileName.contains(".enc")) {
-                fileName += ".enc";
-            }
-            File f = new File(saveDialog.getSelectedFile() + "\\" + fileName);
-            if (f.exists()) {
-                JOptionPane.showMessageDialog(rootPane, "Archivo ya existe.", "Error", JOptionPane.ERROR_MESSAGE);
-            } else {
-                try {
-                    f.createNewFile();
-                    currentEditingFile = f;
-                } catch (IOException ex) {
-                    Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
+            boolean archivoExiste = true;
+            while (archivoExiste == true){
+                String fileName = JOptionPane.showInputDialog("Nombre del archivo", "Untitled.enc");
+                if (!fileName.contains(".enc")) {
+                    fileName += ".enc";
                 }
-                guardarArchivo();
+                File f = new File(saveDialog.getSelectedFile() + "\\" + fileName);
+
+                if (f.exists()) {
+                    JOptionPane.showMessageDialog(rootPane, "El archivo ya existe.", "Error", JOptionPane.ERROR_MESSAGE);
+                } else {
+                    archivoExiste = false;
+                    try {
+                        f.createNewFile();
+                        currentEditingFile = f;
+
+                        guardarArchivo();
+                    } catch (IOException ex) {
+                        Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                }
             }
         } else {
             System.out.println("No se seleccionó archivo");
         }
     }
     
-    public int leerNombreArchivo(){
+    /*
+     * Método que lee el nombre del archivo
+     */
+    private int leerNombreArchivo(){
         int status = fileOpener.showOpenDialog(rootPane);
         if (status == JFileChooser.APPROVE_OPTION) {
             currentEditingFile = fileOpener.getSelectedFile();
@@ -249,10 +354,16 @@ public class MainFrame extends javax.swing.JFrame {
         return status;
     }
     
-    public void imprimirMetodoLongitudBloque(){
+    /*
+     * Método que imprime en la barra de estado el método que se está utilizando y la longitud del bloque
+     */
+    private void imprimirMetodoLongitudBloque(){
         lblEstado.setText("Método: " + metodo + "    Longitud del bloque: " + longitudBloque);
     }
     
+    /*
+     * Método que encripta el texto en claro en pantalla y lo coloca en el campo de texto de arriba
+     */
     private void encriptar1(){
         String text = textoClaro.getText();
         if (!"".equals(text)){
@@ -264,6 +375,9 @@ public class MainFrame extends javax.swing.JFrame {
         textoClaro.setText("");
     }
     
+    /*
+     * Método que encripta el texto en claro en pantalla y lo coloca en el campo de texto de abajo
+     */
     private void encriptar2(){
         String text = textoClaro.getText();
         if (!"".equals(text)){
@@ -275,17 +389,20 @@ public class MainFrame extends javax.swing.JFrame {
         textoClaro.setText("");
     }
     
+    /*
+     * Método que desencripta una línea del campo de texto de arriba y lo muestra como texto en claro,
+     * si había texto en claro entonces primero lo encripta y lo pasa para abajo
+     */
     private void desencriptar1(){
         String text = textoClaro.getText();
         
-        if (!"".equals(text)){
+        if (!"".equals(text))
             encriptar2();
-        }
         
         if (!byteEnc1.isEmpty()){
             text = encriptador.Desencriptar((byte[])byteEnc1.pop());
 
-            textoClaro.setText(text);
+            textoClaro.setText(limpiarTexto(text));
 
             //Se quita el texto de textoEncriptado1
             text = textoEncriptado1.getText();
@@ -296,6 +413,10 @@ public class MainFrame extends javax.swing.JFrame {
         }
     }
     
+    /*
+     * Método que desencripta una línea del campo de texto de abajo y lo muestra como texto en claro,
+     * si había texto en claro entonces primero lo encripta y lo pasa para arriba
+     */
     private void desencriptar2(){
         String text = textoClaro.getText();
         
@@ -305,7 +426,7 @@ public class MainFrame extends javax.swing.JFrame {
         if (!byteEnc2.isEmpty()){
             text = encriptador.Desencriptar((byte[])byteEnc2.pop());
 
-            textoClaro.setText(text);
+            textoClaro.setText(limpiarTexto(text));
 
             //Se quita el texto de textoEncriptado2
             text = textoEncriptado2.getText();
@@ -313,6 +434,132 @@ public class MainFrame extends javax.swing.JFrame {
                 textoEncriptado2.setText(text.substring(((String)txtEnc2.pop()).length() + 1));
             else
                 textoEncriptado2.setText("");
+        }
+    }
+    
+    /*
+     * Método que recibe un texto desencriptado y le quita los espacios en blanco del final,
+     * dichos espacios fueron agregados para completar la cantidad de bytes que se necesitan.
+     */
+    private String limpiarTexto(String text){
+        String resp = text;
+        
+        while(resp.endsWith(" ")){
+            resp = resp.substring(0, resp.length() - 2);
+        }
+        
+        return resp;
+    }
+    
+    /*
+     * Método que abre un archivo, lo desencripta y lo muestra en pantalla
+     */
+    private void abrirArchivo(){
+        //Show File Open dialogue here
+        int status = fileOpener.showOpenDialog(rootPane);
+        if (status == JFileChooser.APPROVE_OPTION) {
+            //Key for the selected file is entered
+            leerLlave();
+            if(keyOriginal==""){
+                return;
+            }
+            leerMetodo();
+            if(!banderaMetodo){
+                return;
+            }
+            
+            if (currentEditingFile != null) {
+                // A file is opened and is being edited. Open the new file in new window  
+                MainFrame newWindow = new MainFrame(fileOpener.getSelectedFile(), key, metodo, longitudBloque, longitudLlave);
+                newWindow.setVisible(true);
+                newWindow.setDefaultCloseOperation(DISPOSE_ON_CLOSE);
+                newWindow.pack();
+                return;
+            }
+            currentEditingFile = fileOpener.getSelectedFile();
+
+            crearEncriptador();
+            
+            leerArchivo();
+        } else {
+            System.out.println("No se seleccionó archivo");
+        }
+    }
+    
+    /*
+     * Método que crea un nuevo documento, si ya hay uno abierto entonces lo abre
+     * en una nueva ventana.
+     */
+    private void nuevoDocumento(){
+        limpiarVariables();
+        leerLlave();
+        leerMetodo();
+        if (cambios) {
+            MainFrame newWindow = new MainFrame(fileOpener.getSelectedFile());
+            newWindow.setVisible(true);
+            newWindow.setDefaultCloseOperation(DISPOSE_ON_CLOSE);
+            newWindow.pack();
+            salir();
+        }
+    }
+    
+    /*
+     * Método para salir del programa
+     */
+    private void salir(){
+        this.setVisible(false);
+        this.dispose();
+    }
+    
+    /*
+     * Método que define el método escogido por el usuario
+     */
+    private void definirMetodo(String met, int longitudB, int longitudL){
+        //Se debe desencriptar con el encriptador anterior y encriptar con el nuevo
+        
+        Encriptador encriptadorAnterior = encriptador;
+        
+        metodo = met;
+        longitudBloque = longitudB;
+        longitudLlave = longitudL;
+        
+        System.out.println(keyOriginal + " " + longitudB + " " + longitudL);
+        key = arreglaLlave(keyOriginal, longitudLlave);
+        
+        imprimirMetodoLongitudBloque();
+        
+        crearEncriptador();
+        
+        //Limpia lo que estaba encriptado en los textos con el método anterior
+        textoEncriptado1.setText("");
+        textoEncriptado2.setText("");
+        
+        //Desencripta y encripta nuevamente
+        for (int i = 0; i < byteEnc1.size(); i++ )
+            byteEnc1.setElementAt(encriptador.Encriptar(encriptadorAnterior.Desencriptar((byte[])byteEnc1.get(i))), i);
+        for (int i = 0; i < byteEnc2.size(); i++ )
+            byteEnc2.setElementAt(encriptador.Encriptar(encriptadorAnterior.Desencriptar((byte[])byteEnc2.get(i))), i);
+        //Define los textos encriptados y los muestra en pantalla
+        for (int i = 0; i < byteEnc1.size(); i++ ){
+            txtEnc1.setElementAt(new String((byte[])byteEnc1.get(i)), i);
+            textoEncriptado1.setText(textoEncriptado1.getText().concat(((String)txtEnc1.get(i)).concat("\n")));
+        }
+        for (int i = 0; i < byteEnc2.size(); i++ ){
+            txtEnc2.setElementAt(new String((byte[])byteEnc2.get(i)), i);
+            textoEncriptado2.setText(textoEncriptado2.getText().concat(((String)txtEnc2.get(i)).concat("\n")));
+        }
+        
+        
+    }
+    
+    /*
+     * Método que construye el objeto que encripta.
+     */
+    private void crearEncriptador(){
+        try {
+            encriptador = new Encriptador(metodo,longitudBloque,key);
+        } catch (InvalidKeyException ex) {
+            Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
 
@@ -324,9 +571,9 @@ public class MainFrame extends javax.swing.JFrame {
         saveDialog = new javax.swing.JFileChooser();
         jPanel1 = new javax.swing.JPanel();
         jToolBar1 = new javax.swing.JToolBar();
-        btnGuardar = new javax.swing.JButton();
         btnNuevo = new javax.swing.JButton();
         btnAbrir = new javax.swing.JButton();
+        btnGuardar = new javax.swing.JButton();
         btnEncriptar = new javax.swing.JButton();
         btnDesencriptar1 = new javax.swing.JButton();
         btnDesencriptar2 = new javax.swing.JButton();
@@ -345,6 +592,7 @@ public class MainFrame extends javax.swing.JFrame {
         mnuNuevo = new javax.swing.JMenuItem();
         mnuAbrir = new javax.swing.JMenuItem();
         jSeparator1 = new javax.swing.JPopupMenu.Separator();
+        jMenuItem1 = new javax.swing.JMenuItem();
         mnuGuardar = new javax.swing.JMenuItem();
         mnuGuardarSalir = new javax.swing.JMenuItem();
         mnuSalir = new javax.swing.JMenuItem();
@@ -366,13 +614,6 @@ public class MainFrame extends javax.swing.JFrame {
 
         jToolBar1.setBackground(new java.awt.Color(255, 255, 255));
         jToolBar1.setRollover(true);
-
-        btnGuardar.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/guardar.png"))); // NOI18N
-        btnGuardar.setText("Guardar");
-        btnGuardar.setFocusable(false);
-        btnGuardar.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
-        btnGuardar.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
-        jToolBar1.add(btnGuardar);
 
         btnNuevo.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/nuevo.png"))); // NOI18N
         btnNuevo.setText("Nuevo");
@@ -397,6 +638,18 @@ public class MainFrame extends javax.swing.JFrame {
             }
         });
         jToolBar1.add(btnAbrir);
+
+        btnGuardar.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/guardar.png"))); // NOI18N
+        btnGuardar.setText("Guardar");
+        btnGuardar.setFocusable(false);
+        btnGuardar.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
+        btnGuardar.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
+        btnGuardar.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnGuardarActionPerformed(evt);
+            }
+        });
+        jToolBar1.add(btnGuardar);
 
         btnEncriptar.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/encriptar.png"))); // NOI18N
         btnEncriptar.setText("Encriptar");
@@ -427,6 +680,11 @@ public class MainFrame extends javax.swing.JFrame {
         btnDesencriptar2.setFocusable(false);
         btnDesencriptar2.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
         btnDesencriptar2.setVerticalTextPosition(javax.swing.SwingConstants.BOTTOM);
+        btnDesencriptar2.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnDesencriptar2ActionPerformed(evt);
+            }
+        });
         jToolBar1.add(btnDesencriptar2);
 
         btnGuardarSalir.setIcon(new javax.swing.ImageIcon(getClass().getResource("/images/guardarsalir.png"))); // NOI18N
@@ -501,19 +759,48 @@ public class MainFrame extends javax.swing.JFrame {
 
         mnuNuevo.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_N, java.awt.event.InputEvent.CTRL_MASK));
         mnuNuevo.setText("Nuevo");
+        mnuNuevo.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                mnuNuevoActionPerformed(evt);
+            }
+        });
         mnuArchivo.add(mnuNuevo);
 
         mnuAbrir.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_A, java.awt.event.InputEvent.CTRL_MASK));
-        mnuAbrir.setText("Abrir...");
+        mnuAbrir.setText("Abrir");
+        mnuAbrir.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                mnuAbrirActionPerformed(evt);
+            }
+        });
         mnuArchivo.add(mnuAbrir);
         mnuArchivo.add(jSeparator1);
 
+        jMenuItem1.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_G, java.awt.event.InputEvent.SHIFT_MASK | java.awt.event.InputEvent.CTRL_MASK));
+        jMenuItem1.setText("Guardar como...");
+        jMenuItem1.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                jMenuItem1ActionPerformed(evt);
+            }
+        });
+        mnuArchivo.add(jMenuItem1);
+
         mnuGuardar.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_G, java.awt.event.InputEvent.CTRL_MASK));
         mnuGuardar.setText("Guardar");
+        mnuGuardar.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                mnuGuardarActionPerformed(evt);
+            }
+        });
         mnuArchivo.add(mnuGuardar);
 
         mnuGuardarSalir.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_S, java.awt.event.InputEvent.CTRL_MASK));
         mnuGuardarSalir.setText("Guardar y salir");
+        mnuGuardarSalir.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                mnuGuardarSalirActionPerformed(evt);
+            }
+        });
         mnuArchivo.add(mnuGuardarSalir);
 
         mnuSalir.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_S, java.awt.event.InputEvent.SHIFT_MASK | java.awt.event.InputEvent.CTRL_MASK));
@@ -597,101 +884,50 @@ public class MainFrame extends javax.swing.JFrame {
     }// </editor-fold>//GEN-END:initComponents
 
     private void btnAbrirActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnAbrirActionPerformed
-        //Show File Open dialouge here
-        int status = fileOpener.showOpenDialog(rootPane);
-        if (status == JFileChooser.APPROVE_OPTION) {
-            if (currentEditingFile != null) {
-                // A file is opened and is being edited. Open the new file in new window  
-                MainFrame newWindow = new MainFrame(fileOpener.getSelectedFile());
-                newWindow.setVisible(true);
-                newWindow.setDefaultCloseOperation(DISPOSE_ON_CLOSE);
-                newWindow.pack();
-                return;
-            }
-            currentEditingFile = fileOpener.getSelectedFile();
-            System.out.println("Archivo seleccionado. Nombre = " + fileOpener.getSelectedFile().getName());
-            
-            leerArchivo(currentEditingFile);
-            
-            //Key for the selected file is entered
-            leerLlave();
-
-            try {
-                encriptador = new Encriptador(metodo, longitudBloque, key);
-            } catch (InvalidKeyException ex) {
-                Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
-            }
-        } else {
-            System.out.println("No se seleccionó archivo");
-        }
+        abrirArchivo();
     }//GEN-LAST:event_btnAbrirActionPerformed
 
     private void btnGuardarSalirActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnGuardarSalirActionPerformed
-        guardarArchivo();
-        
-        this.setVisible(false);
-        this.dispose();
+        guardarArchivo();      
+        salir();
     }//GEN-LAST:event_btnGuardarSalirActionPerformed
-
-    private void btnEncriptarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnEncriptarActionPerformed
-        // TODO add your handling code here:
-        encriptar1();
-    }//GEN-LAST:event_btnEncriptarActionPerformed
     
-    private void btnDesencriptar1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnDesencriptar1ActionPerformed
-        // TODO add your handling code here:
-        String text = textoEncriptado1.getText();
-        String decText = encriptador.Desencriptar(text.getBytes());
-        textoClaro.setText(decText);
-    }//GEN-LAST:event_btnDesencriptar1ActionPerformed
-
     private void mnuMetBlowfishActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_mnuMetBlowfishActionPerformed
         // TODO add your handling code here:
-        
-        metodo = "blowfish";
-        longitudBloque = 8;
-        longitudLlave = 8;
-        
-        key = arreglaLlave(keyOriginal, longitudLlave);
-        
-        imprimirMetodoLongitudBloque();
-        
-        try {
-            encriptador = new Encriptador(metodo, longitudBloque, key);
-        } catch (InvalidKeyException ex) {
-            Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
-        }
+        definirMetodo("blowfish", 8, 8);
     }//GEN-LAST:event_mnuMetBlowfishActionPerformed
 
     private void mnuSalirActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_mnuSalirActionPerformed
         // TODO add your handling code here:
         
-        this.setVisible(false); 
-        this.dispose(); //Destroy the window
+        salir(); //Destroy the window
     }//GEN-LAST:event_mnuSalirActionPerformed
 
     private void textoClaroKeyPressed(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_textoClaroKeyPressed
         // TODO add your handling code here:
         
+        // Si se presiona una tecla cualquiera en el texto en claro entonces se marca que se produjo un cambio
+        cambios = true;
+        
+        //Si se precionó el enter, ctrl-down o ctrl-up
         if (evt.getKeyCode() == KeyEvent.VK_ENTER || 
                 (evt.isControlDown() && evt.getKeyCode() == KeyEvent.VK_DOWN) || 
                 (evt.isControlDown() && evt.getKeyCode() == KeyEvent.VK_UP)){
         
+            // Si no se había definido la llave entonces es lo primero que se debe hacer
             if ("".equals(key)){
                 leerLlave();
+                
+                leerMetodo();
 
-                try {
-                    encriptador = new Encriptador(metodo,longitudBloque,key);
-                } catch (InvalidKeyException ex) {
-                    Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
-                }
+                crearEncriptador();
             }
 
-            if (evt.getKeyCode() == KeyEvent.VK_ENTER){
+            if (evt.getKeyCode() == KeyEvent.VK_ENTER){ //Si se presionó el enter
                 encriptar1();
-            }else if(evt.isControlDown() && evt.getKeyCode() == KeyEvent.VK_DOWN){
+            }else if(evt.isControlDown() && evt.getKeyCode() == KeyEvent.VK_DOWN){ // Si se presionó el ctrl-down
                 desencriptar1();
-            }else if(evt.isControlDown() && evt.getKeyCode() == KeyEvent.VK_UP){
+            }else if(evt.isControlDown() && evt.getKeyCode() == KeyEvent.VK_UP){ // Si se presionó el ctrl-up
                 desencriptar2();
             }
         }
@@ -700,6 +936,7 @@ public class MainFrame extends javax.swing.JFrame {
     private void textoClaroKeyReleased(java.awt.event.KeyEvent evt) {//GEN-FIRST:event_textoClaroKeyReleased
         // TODO add your handling code here:
         
+        // Al liberar la tecla del enter entonces se borra el texto en claro
         if (evt.getKeyCode() == KeyEvent.VK_ENTER){
             textoClaro.setText("");
         }
@@ -708,77 +945,128 @@ public class MainFrame extends javax.swing.JFrame {
     private void mnuPasswordActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_mnuPasswordActionPerformed
         // TODO add your handling code here:
         
+        //Se debe desencriptar con el encriptador anterior y encriptar con el nuevo
+        
+        Encriptador encriptadorAnterior = encriptador;
+        
         leerLlave();
+        
+        crearEncriptador();
+        
+        //Limpia lo que estaba encriptado en los textos con el método anterior
+        textoEncriptado1.setText("");
+        textoEncriptado2.setText("");
+        
+        //Desencripta y encripta nuevamente
+        for (int i = 0; i < byteEnc1.size(); i++ )
+            byteEnc1.setElementAt(encriptador.Encriptar(encriptadorAnterior.Desencriptar((byte[])byteEnc1.get(i))), i);
+        for (int i = 0; i < byteEnc2.size(); i++ )
+            byteEnc2.setElementAt(encriptador.Encriptar(encriptadorAnterior.Desencriptar((byte[])byteEnc2.get(i))), i);
+        //Define los textos encriptados y los muestra en pantalla
+        for (int i = 0; i < byteEnc1.size(); i++ ){
+            txtEnc1.setElementAt(new String((byte[])byteEnc1.get(i)), i);
+            textoEncriptado1.setText(textoEncriptado1.getText().concat(((String)txtEnc1.get(i)).concat("\n")));
+        }
+        for (int i = 0; i < byteEnc2.size(); i++ ){
+            txtEnc2.setElementAt(new String((byte[])byteEnc2.get(i)), i);
+            textoEncriptado2.setText(textoEncriptado2.getText().concat(((String)txtEnc2.get(i)).concat("\n")));
+        }
     }//GEN-LAST:event_mnuPasswordActionPerformed
 
     private void mnuMetTwofishActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_mnuMetTwofishActionPerformed
         // TODO add your handling code here:
         
-        metodo = "twofish";
-        longitudBloque = 16;
-        longitudLlave = 16;
-        
-        key = arreglaLlave(keyOriginal, longitudLlave);
-        
-        imprimirMetodoLongitudBloque();
-        
-        try {
-            encriptador = new Encriptador(metodo, longitudBloque, key);
-        } catch (InvalidKeyException ex) {
-            Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
-        }
+        definirMetodo("twofish", 16, 16);
     }//GEN-LAST:event_mnuMetTwofishActionPerformed
 
     private void mnuMetDESActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_mnuMetDESActionPerformed
         // TODO add your handling code here:
         
-        metodo = "des";
-        longitudBloque = 8;
-        longitudLlave = 8;
-        
-        key = arreglaLlave(keyOriginal, longitudLlave);
-        
-        imprimirMetodoLongitudBloque();
-        
-        try {
-            encriptador = new Encriptador(metodo, longitudBloque, key);
-        } catch (InvalidKeyException ex) {
-            Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
-        }
+        definirMetodo("des", 8, 8);
     }//GEN-LAST:event_mnuMetDESActionPerformed
 
     private void mnuMetTDESActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_mnuMetTDESActionPerformed
         // TODO add your handling code here:
         
-        metodo = "tripledes";
-        longitudBloque = 8;
-        longitudLlave = 24;
-        
-        key = arreglaLlave(keyOriginal, longitudLlave);
-        
-        imprimirMetodoLongitudBloque();
-        
-        try {
-            encriptador = new Encriptador(metodo, longitudBloque, key);
-        } catch (InvalidKeyException ex) {
-            Logger.getLogger(MainFrame.class.getName()).log(Level.SEVERE, null, ex);
-        }
+        definirMetodo("tripledes", 8, 24);
     }//GEN-LAST:event_mnuMetTDESActionPerformed
 
-    private void btnSalirActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnSalirActionPerformed
+    private void btnGuardarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnGuardarActionPerformed
         // TODO add your handling code here:
         
-        this.setVisible(false);
-        this.dispose();
-    }//GEN-LAST:event_btnSalirActionPerformed
+        guardarArchivo();
+    }//GEN-LAST:event_btnGuardarActionPerformed
 
     private void btnNuevoActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnNuevoActionPerformed
         // TODO add your handling code here:
         
-        limpiarVariables();
-        keyOriginal = "";
-        key = "";
+        nuevoDocumento();
     }//GEN-LAST:event_btnNuevoActionPerformed
+
+    private void btnDesencriptar1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnDesencriptar1ActionPerformed
+        // TODO add your handling code here:
+        
+        desencriptar1();
+    }//GEN-LAST:event_btnDesencriptar1ActionPerformed
+
+    private void btnDesencriptar2ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnDesencriptar2ActionPerformed
+        // TODO add your handling code here:
+        
+        desencriptar2();
+    }//GEN-LAST:event_btnDesencriptar2ActionPerformed
+
+    private void btnEncriptarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnEncriptarActionPerformed
+        // TODO add your handling code here:
+        
+        //Si no se ha definido la llave es lo primero que se debe hacer
+        if ("".equals(key)){
+            leerLlave();
+            
+            leerMetodo();
+
+            crearEncriptador();
+        }
+        
+        encriptar1();
+    }//GEN-LAST:event_btnEncriptarActionPerformed
+
+    private void mnuAbrirActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_mnuAbrirActionPerformed
+        // TODO add your handling code here:
+        
+        abrirArchivo();
+    }//GEN-LAST:event_mnuAbrirActionPerformed
+
+    private void mnuGuardarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_mnuGuardarActionPerformed
+        // TODO add your handling code here:
+        
+        guardarArchivo();
+    }//GEN-LAST:event_mnuGuardarActionPerformed
+
+    private void mnuGuardarSalirActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_mnuGuardarSalirActionPerformed
+        // TODO add your handling code here:
+        
+        guardarArchivo();
+        
+        salir();
+    }//GEN-LAST:event_mnuGuardarSalirActionPerformed
+
+    private void mnuNuevoActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_mnuNuevoActionPerformed
+        // TODO add your handling code here:
+        
+        nuevoDocumento();
+    }//GEN-LAST:event_mnuNuevoActionPerformed
+
+    private void btnSalirActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnSalirActionPerformed
+        // TODO add your handling code here:
+        
+        salir();
+    }//GEN-LAST:event_btnSalirActionPerformed
+
+    private void jMenuItem1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jMenuItem1ActionPerformed
+        // TODO add your handling code here:
+        
+        guardarComoArchivo();
+    }//GEN-LAST:event_jMenuItem1ActionPerformed
 /**/
     
 /**/
@@ -808,6 +1096,7 @@ public class MainFrame extends javax.swing.JFrame {
 
         /* Create and display the form */
         java.awt.EventQueue.invokeLater(new Runnable() {
+            @Override
             public void run() {
                 new MainFrame().setVisible(true);
             }
@@ -825,6 +1114,7 @@ public class MainFrame extends javax.swing.JFrame {
     private javax.swing.JButton btnSalir;
     private javax.swing.JFileChooser fileOpener;
     private javax.swing.JMenuBar jMenuBar1;
+    private javax.swing.JMenuItem jMenuItem1;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JPanel jPanel2;
     private javax.swing.JScrollPane jScrollPane1;

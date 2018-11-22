@@ -54,14 +54,22 @@ public class Encriptador {
      * @return Un arreglo de bytes que representa el texto encriptado
      */
     public byte[] Encriptar(String textoClaro){
-        String textoClaroArreglado = completaString(textoClaro);
+        byte[] byteTextoOriginal = textoClaro.getBytes();
         
-        int pasos = textoClaroArreglado.length() / this.tamannoBloque;
+        int tamanno = byteTextoOriginal.length;
+        int pasos;
+        if (tamanno % this.tamannoBloque == 0)
+            pasos = tamanno / this.tamannoBloque;
+        else
+            pasos = tamanno / this.tamannoBloque + 1;
         
         byte[] resultado = new byte[pasos * this.tamannoBloque];
         
         for (int i = 0; i < pasos; i++){
-            byte[] pt = textoClaroArreglado.substring(i*this.tamannoBloque, (i+1)*this.tamannoBloque).getBytes();
+            byte[] pt = new byte[this.tamannoBloque];
+            //pt = Arrays.copyOfRange(byteTextoOriginal, (i+1)*this.tamannoBloque + j);
+            for (int j = 0; j < this.tamannoBloque && i*this.tamannoBloque + j < byteTextoOriginal.length; j++)
+                pt[j] = byteTextoOriginal[i*this.tamannoBloque + j];
             cipher.encryptBlock(pt, 0, resultado, i * this.tamannoBloque);
         }
         
@@ -74,16 +82,15 @@ public class Encriptador {
      * @return El texto desencriptado
      */
     public String Desencriptar(byte[] textoEncriptado){
-        String desencriptado = new String();
-        
         byte[] resultado = new byte[this.tamannoBloque];
+        byte[] resultadofinal = new byte[textoEncriptado.length];
         
         for (int i = 0; i + this.tamannoBloque <= textoEncriptado.length; i += this.tamannoBloque){
             cipher.decryptBlock(textoEncriptado, i, resultado, 0);
-            desencriptado = desencriptado.concat(new String(resultado));
+            System.arraycopy(resultado, 0, resultadofinal, i, this.tamannoBloque);
         }
         
-        return desencriptado;
+        return new String(resultadofinal);
     }
     
     /*
